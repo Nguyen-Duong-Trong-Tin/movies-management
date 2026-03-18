@@ -202,3 +202,111 @@ final class MoviesController extends AbstractController
     }
 }
 ```
+---
+
+## 🎨 Frontend Assets (Webpack Encore)
+
+Managing CSS, JavaScript, and images in Symfony is handled beautifully by Webpack Encore, which bridges your PHP backend with modern frontend Node.js tools.
+
+### 1. Installation & Setup
+First, install the Symfony bundle, which will generate your `assets/` folder and `webpack.config.js` file. Then, install the Node dependencies.
+```bash
+composer require symfony/webpack-encore-bundle
+npm install
+```
+
+### 2. Compiling Your Assets
+Whenever you write new CSS or JavaScript inside the `assets/` folder, you must compile it into browser-ready files (which get saved to `public/build/`).
+
+*   **Compile Once (Development):** Use this to build your files manually.
+    ```bash
+    npm run dev
+    ```
+*   **Auto-Compile (Watch Mode):** Use this while actively coding. It runs in the background and automatically recompiles every time you hit save.
+    *(Optional: Install notifier for desktop pop-ups: `npm i webpack-notifier --save-dev`)*
+    ```bash
+    npm run watch
+    ```
+
+### 3. Managing Static Assets (Images & Fonts)
+To reliably link to static files in your `public/` directory without hardcoding fragile URLs, install the Asset component:
+```bash
+composer require symfony/asset
+```
+
+**Example Usage in Twig:**
+```twig
+{# ❌ Bad: Hardcoded URL #}
+<img src="/images/logo.png" alt="Movie Logo">
+
+{# ✅ Good: Dynamic Asset URL #}
+<img src="{{ asset('images/logo.png') }}" alt="Movie Logo">
+```
+
+### 4. Linking CSS in Twig
+When you want to load your compiled CSS into your templates, you can use the built-in Encore function, or you can manually link to the built file using the `asset()` function:
+
+```twig
+{# templates/base.html.twig #}
+{% block stylesheets %}
+    {# {{ encore_entry_link_tags('app') }} #}
+    <link rel="stylesheet" href="{{ asset('build/app.css') }}">
+{% endblock %}
+```
+
+### 5. JavaScript Architecture
+There are two main ways to structure your JavaScript, depending on where you want the code to run.
+
+#### Option 1: Global JavaScript (Runs on EVERY page)
+Use this for scripts that dictate the overall layout, like navigation menus or global site themes.
+
+**1. Create the script:**
+```javascript
+// assets/javascript/method1.js
+console.log('12345');
+```
+
+**2. Import it into your main app file:**
+```javascript
+// assets/app.js
+// Compile new javascript file
+import './javascript/method1.js';
+```
+
+**3. Render it in your base template:**
+```twig
+{# templates/base.html.twig #}
+{% block javascripts %}
+    {{ encore_entry_script_tags('app') }}
+{% endblock %}
+```
+
+#### Option 2: Page-Specific JavaScript (Runs ONLY on specific pages)
+Use this for heavy scripts that you don't want slowing down your whole site.
+
+**1. Create the script:**
+```javascript
+// assets/javascript/method2.js
+alert('12345');
+```
+
+**2. Register a new entry point in Webpack:**
+```javascript
+// webpack.config.js
+Encore
+    // ...
+    .addEntry('app', './assets/app.js')
+    .addEntry('method2', './assets/javascript/method2.js') 
+```
+
+**3. Render it ONLY on the specific Twig template:**
+```twig
+{# templates/movies/show.html.twig #}
+{% extends 'base.html.twig' %}
+
+{% block javascripts %}
+    {{ encore_entry_script_tags('method2') }}
+{% endblock %}
+```
+
+---
