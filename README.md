@@ -310,3 +310,62 @@ Encore
 ```
 
 ---
+
+## 🌬️ Tailwind CSS v4 Setup
+
+Tailwind v4 is highly optimized and integrates directly through Webpack Encore using PostCSS.
+
+**1. Install the required dependencies:**
+```bash
+npm install -D tailwindcss @tailwindcss/postcss postcss-loader
+```
+
+**2. Create the PostCSS configuration:**
+Create a file named `postcss.config.js` at the root of your project:
+```javascript
+// postcss.config.js
+module.exports = {
+  plugins: {
+    '@tailwindcss/postcss': {},
+  }
+}
+```
+
+**3. Enable PostCSS in Webpack:**
+Open `webpack.config.js` and tell Encore to process PostCSS:
+```javascript
+// webpack.config.js
+Encore
+    // ...
+    .addEntry('app', './assets/app.js')
+    .enablePostCssLoader() // <-- Add this line
+    .splitEntryChunks()
+    // ...
+```
+
+**4. Import Tailwind in your main CSS file:**
+Open your main stylesheet (e.g., `assets/styles/app.css`) and add this to the very top:
+```css
+/* assets/styles/app.css */
+@import "tailwindcss";
+```
+*(Ensure this CSS file is imported in your `assets/app.js` file with `import './styles/app.css';`)*
+
+**5. Compile your assets:**
+Rebuild your assets so Webpack can process the new Tailwind utilities.
+```bash
+npm run dev
+```
+
+**6. Use Tailwind in your Twig templates:**
+Make sure your compiled CSS is linked, then start using Tailwind classes!
+```twig
+{# templates/base.html.twig #}
+{% block stylesheets %}
+    {{ encore_entry_link_tags('app') }}
+{% endblock %}
+
+<body class="bg-slate-100 text-slate-800 p-8">
+    <h1 class="text-2xl font-bold text-blue-600">Tailwind is working! 🎉</h1>
+</body>
+```
