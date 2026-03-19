@@ -369,3 +369,221 @@ Make sure your compiled CSS is linked, then start using Tailwind classes!
     <h1 class="text-2xl font-bold text-blue-600">Tailwind is working! 🎉</h1>
 </body>
 ```
+
+## 🛠️ CRUD Operations
+
+This project implements standard Create, Read, Update, and Delete (CRUD) operations using Symfony Controllers, Doctrine ORM, and Symfony Forms.
+
+### 1. Setup Form Dependencies
+Before building the create and update features, ensure the form and mime components are installed:
+```bash
+composer require symfony/form
+composer require symfony/mime
+symfony console make:form MovieFormType Movie
+```
+
+---
+
+### 📖 READ
+
+**Controller (`src/Controller/MoviesController.php`):**
+```php
+#[Route('/movies', name: 'movies_index', methods: ['GET'])]
+public function index()
+{
+    $repository = $this->entityManager->getRepository(Movie::class);
+    
+    return $this->render('movies/index.html.twig', [
+        'movies' => $repository->findAll(),
+    ]);
+}
+
+#[Route('/movies/{id}', name: 'movies_show', methods: ['GET'])]
+public function show(Movie $movie)
+{
+    return $this->render('movies/show.html.twig', [
+        'movie' => $movie,
+    ]);
+}
+```
+
+**Template (`templates/movies/index.html.twig`):**
+```twig
+{% for movie in movies %}
+    <div>
+        <img src="{{ movie.imagePath }}" />
+        <h2>{{ movie.title }}</h2>
+        <p class="text-base text-gray-700 pt-4 pb-10 leading-8 font-light">
+            {{ movie.description }}
+        </p>
+        <a href="/movies/{{ movie.id }}">Keep Reading</a>
+    </div>
+{% endfor %}
+```
+
+---
+
+### ➕ CREATE
+
+**Form Type (`src/Form/MovieFormType.php`):**
+```php
+public function buildForm(FormBuilderInterface $builder, array $options): void
+{
+    $builder
+        ->add('title', TextType::class, [
+            'attr' => [
+                'class' => 'bg-transparent block border-b-2 w-full h-20 text-6xl outline-none',
+                'placeholder' => 'Enter title...'
+            ],
+            'label' => false
+        ])
+        ->add('releaseYear', IntegerType::class, [
+            'attr' => [
+                'class' => 'bg-transparent block mt-10 border-b-2 w-full h-20 text-6xl outline-none',
+                'placeholder' => 'Enter Release Year...'
+            ],
+            'label' => false
+        ])
+        ->add('description', TextareaType::class, [
+            'attr' => [
+                'class' => 'bg-transparent block mt-10 border-b-2 w-full h-60 text-6xl outline-none',
+                'placeholder' => 'Enter Description...'
+            ],
+            'label' => false
+        ])
+        ->add('imagePath', FileType::class, [
+            'required' => false,
+            'mapped' => false
+        ]);
+}
+```
+
+**Controller (`src/Controller/MoviesController.php`):**
+```php
+#[Route('/movies/create', name: 'movies_create')]
+public function create(Request $request)
+{
+    $movie = new Movie();
+    $form = $this->createForm(MovieFormType::class, $movie);
+    $form->handleRequest($request);
+
+    if ($form->isSubmitted() && $form->isValid()) {
+        $newMovie = $form->getData();
+        $imagePath = $form->get('imagePath')->getData();
+
+        if ($imagePath) {
+            $newFileName = uniqid() . '.' . $imagePath->guessExtension();
+            try {
+                $imagePath->move(
+                    $this->getParameter('kernel.project_dir') . '/public/uploads',
+                    $newFileName
+                );
+            } catch (FileException $e) {
+                return new Response($e->getMessage());
+            }
+            $newMovie->setImagePath($newFileName);
+        }
+
+        $this->entityManager->persist($newMovie);
+        $this->entityManager->flush();
+
+        return $this->redirectToRoute('movies_index');
+    }
+
+    return $this->render('movies/create.html.twig', [
+        'form' => $form->createView(),
+    ]);
+}
+```
+
+**Template (`templates/movies/create.html.twig`):**
+```twig
+{{ form_start(form) }}
+    {{ form_widget(form) }}
+    <button type="submit" class="uppercase mt-15 bg-blue-500 text-gray-100 text-lg font-extrabold py-4 px-8 rounded-3xl">
+        Submit Post
+    </button>
+{{ form_end(form) }}
+```
+
+---
+
+### ✏️ UPDATE
+
+**Controller (`src/Controller/MoviesController.php`):**
+```php
+#[Route('/movies/edit/{id}', name: 'movies_edit')]
+public function edit($id, Request $request): Response
+{
+    $repository = $this->entityManager->getRepository(Movie::class);
+    $movie = $repository->find($id);
+    
+    $form = $this->createForm(MovieFormType::class, $movie);
+    $form->handleRequest($request);
+    $imagePath = $form->get('imagePath')->getData();
+
+    if ($form->isSubmitted() && $form->isValid()) {
+        if ($imagePath) {
+            if ($movie->getImagePath() !== null) {
+                // Handling existing image removal/replacement logic here
+                $newFileName = uniqid() . '.' . $imagePath->guessExtension();
+
+                try {
+                    $imagePath->move(
+                        $this->getParameter('kernel.project_dir') . '/public/uploads',
+                        $newFileName
+                    );
+                } catch (FileException $e) {
+                    return new Response($e->getMessage());
+                }
+
+                $movie->setImagePath($newFileName);
+            }
+        } else {
+            // Update fields without changing image
+            $movie->setTitle($form->get('title')->getData());
+            $movie->setReleaseYear($form->get('releaseYear')->getData());
+            $movie->setDescription($form->get('description')->getData());
+        }
+        
+        $this->entityManager->flush();
+        return $this->redirectToRoute('movies_edit', ['id' => $movie->getId()]);
+    }
+
+    return $this->render('movies/edit.html.twig', [
+        'movie' => $movie,
+        'form' => $form->createView()
+    ]);
+}
+```
+
+**Template (`templates/movies/edit.html.twig`):**
+```twig
+{{ form_start(form) }}
+    {{ form_widget(form) }}
+    <button type="submit" class="uppercase mt-15 bg-blue-500 text-gray-100 text-lg font-extrabold py-4 px-8 rounded-3xl">
+        Submit Post
+    </button>
+{{ form_end(form) }}
+```
+
+---
+
+### ❌ DELETE
+
+**Controller (`src/Controller/MoviesController.php`):**
+```php
+#[Route('/movies/delete/{id}', name: 'movies_delete')]
+public function delete($id) 
+{
+    $repository = $this->entityManager->getRepository(Movie::class);
+    $movie = $repository->find($id);
+
+    if ($movie) {
+        $this->entityManager->remove($movie);
+        $this->entityManager->flush();
+    }
+
+    return $this->redirectToRoute('movies_index');
+}
+```
